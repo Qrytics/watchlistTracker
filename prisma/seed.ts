@@ -71,8 +71,8 @@ async function main() {
 
   // ---- Demo episodes ----
   await prisma.episodeRelease.upsert({
-    where: { tmdbId: "loki-s3e1" },
-    update: {},
+    where: { seriesId_season_episode: { seriesId: loki.id, season: 3, episode: 1 } },
+    update: { title: "Season 3 Premiere", airDate: new Date("2026-06-01T00:00:00Z") },
     create: {
       seriesId: loki.id,
       season: 3,

@@ -71,7 +71,13 @@ export async function syncTheaters(): Promise<void> {
                 showtime: new Date(showing.showtime),
                 ticketUrl: showing.ticketUrl ?? null,
               },
-            }).catch(() => {}); // Ignore unique violations
+            }).catch((err: unknown) => {
+              // Log unexpected errors; P2002 (unique constraint) is expected and safe to ignore
+              const code = (err as { code?: string }).code;
+              if (code !== "P2002") {
+                console.error(`[sync-theaters] Unexpected error inserting showing for "${movie.title}":`, err);
+              }
+            });
           }
         }
       } catch (err) {

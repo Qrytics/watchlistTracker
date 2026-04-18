@@ -211,6 +211,8 @@ model MovieRelease {
   synced      Boolean  @default(false)
 
   movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@unique([movieId, region, releaseType])
 }
 
 enum ReleaseType {

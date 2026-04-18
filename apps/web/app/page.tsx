@@ -39,7 +39,7 @@ export default function LandingPage() {
           {[
             "📺  New episode alerts the moment they air",
             "🎬  Movie release date tracking with advance notice",
-            "🏥  Nearby theatre showings based on your location",
+            "🎭  Nearby theatre showings based on your location",
             "📰  Franchise news and social updates aggregated",
             "🔔  Web-push notifications — no app install needed",
           ].map((f) => (

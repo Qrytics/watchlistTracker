@@ -18,6 +18,8 @@ import { db } from "@/lib/db/client";
 
 export const authOptions: NextAuthOptions = {
   // Prisma adapter persists sessions/accounts to the database.
+  // PrismaAdapter's type from @auth/prisma-adapter is not perfectly compatible with
+  // NextAuth v4's Adapter type. The cast is safe here — the runtime behaviour is correct.
   adapter: PrismaAdapter(db) as NextAuthOptions["adapter"],
 
   session: {

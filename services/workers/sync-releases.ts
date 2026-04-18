@@ -101,15 +101,17 @@ async function syncMovieReleases(): Promise<void> {
           // Use a deterministic pseudo-ID for upsert
           const releaseDate = new Date(rd.release_date);
 
+          // Uses the @@unique([movieId, region, releaseType]) constraint
           await db.movieRelease.upsert({
             where: {
-              // No unique constraint on movieId+type+region — use findFirst + create pattern
-              // We rely on findFirst to avoid duplicates
-              id: `${movie.id}-${regionData.iso_3166_1}-${releaseType}`,
+              movieId_region_releaseType: {
+                movieId: movie.id,
+                region: regionData.iso_3166_1,
+                releaseType,
+              },
             },
             update: { releaseDate },
             create: {
-              id: `${movie.id}-${regionData.iso_3166_1}-${releaseType}`,
               movieId: movie.id,
               releaseType,
               releaseDate,

@@ -44,7 +44,7 @@ export function WatchlistCard({ item, onRemove }: WatchlistCardProps) {
         {content.posterUrl ? (
           <Image
             src={content.posterUrl}
-            alt={content.title}
+            alt={content.title || "Poster"}
             fill
             sizes="(max-width: 640px) 50vw, 33vw"
             className="object-cover"
