@@ -1,0 +1,14 @@
+/**
+ * app/(auth)/signup/page.tsx
+ *
+ * Signup page — renders the SignupForm feature component.
+ */
+
+import type { Metadata } from "next";
+import { SignupForm } from "@/features/auth/SignupForm";
+
+export const metadata: Metadata = { title: "Create account" };
+
+export default function SignupPage() {
+  return <SignupForm />;
+}

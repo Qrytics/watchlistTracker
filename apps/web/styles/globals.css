@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---- Safe-area support for notched phones ---- */
+:root {
+  --sat: env(safe-area-inset-top);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+  --sar: env(safe-area-inset-right);
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 antialiased;
+  /* Push content above iOS home-indicator */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ---- Mobile-first bottom-nav clearance ---- */
+.page-content {
+  @apply pb-24 pt-4 px-4;
+}
+
+/* ---- Poster aspect ratio helper ---- */
+.poster {
+  @apply aspect-[2/3] w-full overflow-hidden rounded-xl object-cover;
+}
