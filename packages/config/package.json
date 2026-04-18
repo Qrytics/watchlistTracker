@@ -1,0 +1,13 @@
+{
+  "name": "@watchlist/config",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./constants.ts",
+  "types": "./constants.ts",
+  "scripts": {
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

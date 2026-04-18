@@ -1,0 +1,334 @@
+// =============================================================================
+// Prisma Schema — WatchlistTracker
+// =============================================================================
+// Entities:
+//   User, Account (OAuth), Session, VerificationToken (NextAuth)
+//   UserPreference, Location
+//   WatchlistItem
+//   Franchise, Series, Movie
+//   EpisodeRelease, MovieRelease
+//   TheaterShowing
+//   SourceFeedItem (news/social)
+//   Notification (log of sent notifications)
+//   PushSubscription (web push endpoints per device)
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth — NextAuth tables
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?   // null for OAuth-only users
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts          Account[]
+  sessions          Session[]
+  preference        UserPreference?
+  location          Location?
+  watchlistItems    WatchlistItem[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// User Preferences & Location
+// ---------------------------------------------------------------------------
+
+model UserPreference {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // Notification channels
+  pushEnabled   Boolean @default(true)
+  emailEnabled  Boolean @default(true)
+  digestEnabled Boolean @default(false) // weekly digest instead of individual alerts
+
+  // Alert types the user cares about
+  notifyNewEpisode     Boolean @default(true)
+  notifyMovieRelease   Boolean @default(true)
+  notifyTheaterNearby  Boolean @default(true)
+  notifyNewsUpdates    Boolean @default(false)
+  notifySocialUpdates  Boolean @default(false)
+
+  // How far in advance to alert (days)
+  advanceNoticeDays Int @default(1)
+
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Location {
+  id        String  @id @default(cuid())
+  userId    String  @unique
+  latitude  Float
+  longitude Float
+  city      String?
+  country   String?
+  radiusKm  Int     @default(50) // theater search radius
+
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Content Metadata
+// ---------------------------------------------------------------------------
+
+model Franchise {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  posterUrl   String?
+  tmdbId      String? @unique // TMDB collection/franchise id
+
+  series  Series[]
+  movies  Movie[]
+  feedItems SourceFeedItem[]
+}
+
+model Series {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  posterUrl   String?
+  status      SeriesStatus @default(ONGOING) // ONGOING | ENDED | CANCELLED | UPCOMING
+  tmdbId      String? @unique
+  tvmazeId    String? @unique
+  franchiseId String?
+
+  franchise      Franchise?      @relation(fields: [franchiseId], references: [id])
+  episodes       EpisodeRelease[]
+  watchlistItems WatchlistItem[]
+}
+
+model Movie {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  posterUrl   String?
+  status      MovieStatus  @default(UPCOMING) // UPCOMING | RELEASED | CANCELLED
+  tmdbId      String? @unique
+  franchiseId String?
+
+  franchise      Franchise?      @relation(fields: [franchiseId], references: [id])
+  releases       MovieRelease[]
+  showings       TheaterShowing[]
+  watchlistItems WatchlistItem[]
+}
+
+enum SeriesStatus {
+  ONGOING
+  UPCOMING
+  ENDED
+  CANCELLED
+}
+
+enum MovieStatus {
+  UPCOMING
+  RELEASED
+  CANCELLED
+}
+
+// ---------------------------------------------------------------------------
+// Releases
+// ---------------------------------------------------------------------------
+
+model EpisodeRelease {
+  id       String   @id @default(cuid())
+  seriesId String
+  season   Int
+  episode  Int
+  title    String?
+  airDate  DateTime
+  summary  String?
+  tmdbId   String?  @unique
+  synced   Boolean  @default(false) // has notifications been dispatched?
+
+  series Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@unique([seriesId, season, episode])
+}
+
+model MovieRelease {
+  id          String   @id @default(cuid())
+  movieId     String
+  releaseType ReleaseType // THEATRICAL | STREAMING | HOME_VIDEO
+  releaseDate DateTime
+  region      String   @default("US")
+  synced      Boolean  @default(false)
+
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@unique([movieId, region, releaseType])
+}
+
+enum ReleaseType {
+  THEATRICAL
+  STREAMING
+  HOME_VIDEO
+}
+
+// ---------------------------------------------------------------------------
+// Theater Showings
+// ---------------------------------------------------------------------------
+
+model TheaterShowing {
+  id          String   @id @default(cuid())
+  movieId     String
+  theaterName String
+  theaterAddress String?
+  latitude    Float
+  longitude   Float
+  showtime    DateTime
+  ticketUrl   String?
+  externalId  String?  @unique // provider's id for deduplication
+
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// User Watchlist
+// ---------------------------------------------------------------------------
+
+model WatchlistItem {
+  id        String          @id @default(cuid())
+  userId    String
+  itemType  WatchlistItemType // SERIES | MOVIE
+  seriesId  String?
+  movieId   String?
+  addedAt   DateTime        @default(now())
+  notes     String?
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  series Series? @relation(fields: [seriesId], references: [id])
+  movie  Movie?  @relation(fields: [movieId], references: [id])
+
+  @@unique([userId, seriesId])
+  @@unique([userId, movieId])
+}
+
+enum WatchlistItemType {
+  SERIES
+  MOVIE
+}
+
+// ---------------------------------------------------------------------------
+// News / Social Feed Items
+// ---------------------------------------------------------------------------
+
+model SourceFeedItem {
+  id          String   @id @default(cuid())
+  title       String
+  url         String   @unique
+  source      String   // e.g. "rss:variety", "reddit:r/television"
+  summary     String?
+  publishedAt DateTime
+  imageUrl    String?
+  franchiseId String?
+
+  franchise Franchise? @relation(fields: [franchiseId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Notifications (audit log of sent alerts)
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  url       String?          // deep-link into the app
+  channel   NotificationChannel
+  sentAt    DateTime         @default(now())
+  read      Boolean          @default(false)
+  readAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum NotificationType {
+  NEW_EPISODE
+  MOVIE_RELEASE
+  THEATER_NEARBY
+  NEWS_UPDATE
+  SOCIAL_UPDATE
+}
+
+enum NotificationChannel {
+  PUSH
+  EMAIL
+  IN_APP
+}
+
+// ---------------------------------------------------------------------------
+// Push Subscriptions (one row per browser/device)
+// ---------------------------------------------------------------------------
+
+model PushSubscription {
+  id       String   @id @default(cuid())
+  userId   String
+  endpoint String   @unique
+  p256dh   String   // public key
+  auth     String   // auth secret
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
